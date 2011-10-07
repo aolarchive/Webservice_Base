@@ -346,13 +346,12 @@ public class Configuration {
                 }
 
                 // create the configuration
-                handleStatics();
                 createObjects();
             }
         } catch (Throwable t) {
       	  invalidConfig = true;
       	  t.printStackTrace();
-      	  logger.error(t);
+       	  logger.error(t);
       	  throw new ExceptionInInitializerError(t);
         } finally {
             if (is != null) {
@@ -634,7 +633,7 @@ public class Configuration {
     }
 
     /**
-     * Creates the objects.createObjects
+     * Creates the objects and sets up statics
      *
      * @throws XPathExpressionException
      *            the x path expression exception
@@ -649,60 +648,39 @@ public class Configuration {
      */
     protected void createObjects() throws XPathExpressionException, InstantiationException, IllegalAccessException, ClassNotFoundException,
             ConfigurationException {
-        String finder = "/config/object[not(@env)]" + "|" + "/config/object[@env='" + env + "']";
-        NodeList objNodes = XPathHelper.getXpathExpressionNodeList(configDocument, finder);
+        String finder = "/config/object[not(@env)]" + "|" + "/config/object[@env='" + env + "']|/config/static[not(@env)]" + "|" + "/config/static[@env='" + env + "']";
+        NodeList objAndStaticNodes = XPathHelper.getXpathExpressionNodeList(configDocument, finder);
 
-        Map<String, Node> nodes = getEnvNodes(objNodes, "object");
+        Map<String, Node> nodes = getEnvNodes(objAndStaticNodes, "object");
 
-        for (int i = 0; i < objNodes.getLength(); i++) {
-            Node objNode = objNodes.item(i);
-            // get name and class of object
-            String id = XPathHelper.getXpathExpressionValue(objNode, "@id");
-            if (objNode != nodes.get(id)) {
-                continue;
-            }
-            Object object = createObject(objNode);
-
-            objects.put(id, object);
-
-            String category = XPathHelper.getXpathExpressionValue(objNode, "@category");
-            if (category != null) {
-                ArrayList<Object> objs = objectsByCategory.get(category);
-                if (objs == null) {
-                    objs = new ArrayList<Object>();
-                    objectsByCategory.put(category, objs);
-                }
-                objs.add(object);
+        for (int i = 0; i < objAndStaticNodes.getLength(); i++) {
+            Node objNode = objAndStaticNodes.item(i);
+            
+            if ("static".equals(objNode.getNodeName())) {
+            	populateStatic(objNode);
+            } else {
+	            // get name and class of object
+	            String id = XPathHelper.getXpathExpressionValue(objNode, "@id");
+	            if (objNode != nodes.get(id)) {
+	                continue;
+	            }
+	            Object object = createObject(objNode);
+	
+	            objects.put(id, object);
+	
+	            String category = XPathHelper.getXpathExpressionValue(objNode, "@category");
+	            if (category != null) {
+	                ArrayList<Object> objs = objectsByCategory.get(category);
+	                if (objs == null) {
+	                    objs = new ArrayList<Object>();
+	                    objectsByCategory.put(category, objs);
+	                }
+	                objs.add(object);
+	            }
             }
         }
     }
 
-    /**
-     * handles any static initialization
-     *
-     * @throws XPathExpressionException
-     *            the x path expression exception
-     * @throws InstantiationException
-     *            the instantiation exception
-     * @throws IllegalAccessException
-     *            the illegal access exception
-     * @throws ClassNotFoundException
-     *            the class not found exception
-     * @throws ConfigurationException
-     *            the configuration exception
-     */
-    protected void handleStatics() throws XPathExpressionException, InstantiationException, IllegalAccessException, ClassNotFoundException,
-            ConfigurationException {
-        String finder = "/config/static[not(@env)]" + "|" + "/config/static[@env='" + env + "']";
-        NodeList staticNodes = XPathHelper.getXpathExpressionNodeList(configDocument, finder);
-
-        for (int i = 0; i < staticNodes.getLength(); i++) {
-            Node staticNode = staticNodes.item(i);
-            // get member
-     	    	populateStatic(staticNode);
-        }
-    }
-    
     protected Object[] getParams(String objectId, Node node) throws ConfigurationException {
         try {
             NodeList params = XPathHelper.getXpathExpressionNodeList(node, "params/param");
@@ -1456,6 +1434,10 @@ public class Configuration {
 
         for (int i = 0; i < nodeList.getLength(); i++) {
             Node node = nodeList.item(i);
+            
+            // only process the kind of node we are getting
+            if (!kind.equals(node.getNodeName()))
+            	continue;
 
             String id = XPathHelper.getXpathExpressionValue(node, "@id");
             if (id == null) {
