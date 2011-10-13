@@ -488,6 +488,15 @@ public class HttpHelper {
 				logger.error("HttpException " + METHOD + " url=" + url + " exception=" + t.getMessage());
 				throw new HttpException(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, t);
 			} finally {
+				// release the connection whenever we are not successful
+				if ((!success) && (response != null)) {
+					try {
+						releaseResponse(response);
+						response = null;
+					} catch (IOException e) {
+						logger.error("HttpHelper - problem releasing connection", e);
+					}					
+				}
 			}			
 		} while (!success && (++iter <= this.followRedirectMax));
 
