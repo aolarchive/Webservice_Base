@@ -99,7 +99,7 @@ public class JSONSerializer extends BaseSerializer {
 		}
 
 		// any quotes need to be escaped
-		os.write(escape(value.toString()).getBytes());
+		os.write(escape(value.toString()).getBytes("UTF-8"));
 
 		if (valueNeedsQuotes) {
 			os.write(QUOTES);
